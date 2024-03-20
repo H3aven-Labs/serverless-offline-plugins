@@ -37,23 +37,26 @@ class ServerlessOfflineElasticMqPlugin {
     const elasticMqVersion =
       this.elasticMqConfig.version || ElasticMQLatestVersion;
     const elasticMqServerJarName = this.getJarFileName(elasticMqVersion);
+    const filePath = `${MQ_LOCAL_PATH}/${elasticMqServerJarName}`;
 
-    if (this.isJarFilePresent(elasticMqServerJarName)) {
+    if (this.isJarFilePresent(filePath)) {
       return;
     }
-
     const elasticMqVersionUrl = `https://s3-eu-west-1.amazonaws.com/softwaremill-public/elasticmq-server-${elasticMqVersion}.jar`;
-
-    const filePath = `${MQ_LOCAL_PATH}/${elasticMqServerJarName}`;
     const file = createWriteStream(filePath);
 
     return new Promise<void>((resolve, reject) => {
+      const isDownloadingIntervalId = setInterval(() => {
+        this.serverless.cli.log(`Downloading ElasticMq...`);
+      }, 5000);
+
       https
         .get(elasticMqVersionUrl, (response) => {
           response.pipe(file);
 
           file.on("finish", () => {
             file.close();
+            clearInterval(isDownloadingIntervalId);
             this.serverless.cli.log(
               `ElasticMq version ${elasticMqVersion} downloaded as ${elasticMqServerJarName}`,
             );
